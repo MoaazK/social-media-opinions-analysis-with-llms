@@ -1,6 +1,6 @@
-# social-media-opinions-analysis-with-llms
+# Social Media Opinions Analysis with LLMs
 
-This project provides tools for analyzing social media opinions using Large Language Models (LLMs).
+This project analyzes social media opinions using Large Language Models (LLMs) by grouping, classifying, and summarizing them.
 
 ## Getting Started
 
