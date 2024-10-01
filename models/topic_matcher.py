@@ -1,9 +1,10 @@
-from sentence_transformers import SentenceTransformer, InputExample, losses, SentenceTransformerTrainer, SentenceTransformerTrainingArguments
+from sentence_transformers import SentenceTransformer, util, InputExample, losses, SentenceTransformerTrainer, SentenceTransformerTrainingArguments
 from torch.utils.data import DataLoader
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import numpy as np
 import pandas as pd
+import torch
 from datasets import Dataset
 
 
@@ -101,3 +102,26 @@ class TopicMatcher:
     #         'recall': recall,
     #         'f1': f1
     #     }
+
+########################################################################
+#------------------------------ Inference -----------------------------#
+########################################################################
+
+def match_topics(grouping_model: SentenceTransformer, topics: pd.DataFrame, opinions: pd.DataFrame):
+    topic_texts = topics['text'].tolist()
+    opinion_texts = opinions['text'].tolist()
+
+    topic_embeddings = grouping_model.encode(topic_texts, convert_to_tensor=True)
+    opinion_embeddings = grouping_model.encode(opinion_texts, convert_to_tensor=True)
+
+    cosine_scores = util.cos_sim(opinion_embeddings, topic_embeddings)
+
+    assigned_topics = []
+    for idx in range(len(opinions)):
+        topic_idx = torch.argmax(cosine_scores[idx]).item()
+        assigned_topic_id = topics.iloc[topic_idx]['topic_id']
+        assigned_topics.append(assigned_topic_id)
+
+    opinions['assigned_topic_id'] = assigned_topics
+
+    return opinions

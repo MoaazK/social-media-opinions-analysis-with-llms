@@ -1,32 +1,46 @@
-from utils.data_preprocessing import preprocess_data, split_data
-from models.topic_matcher import TopicMatcher
-from models.comment_classifier import OpinionClassifier
-from models.summarizer import Summarizer
+import pandas as pd
+from models.classifier import classify_opinions
+from models.summarizer import generate_summaries
+from models.topic_matcher import match_topics
+from utils.data_preprocessing import clean_text
+from utils.model_utils import load_models, load_topics
+
 
 def main():
-    # Load and preprocess data
-    topics, opinions, conclusions = preprocess_data()
-    train_data, test_data = split_data(opinions)
+    grouping_model, classification_tokenizer, classification_model, summarization_tokenizer, summarization_model = load_models()
 
-    # Match topics and opinions
-    topic_matcher = TopicMatcher()
-    topic_matcher.fine_tune(topics, train_data)
-    matched_opinions = topic_matcher.match_topics(topics, test_data)
-    topic_matcher.evaluate(test_data, matched_opinions)
+    topics = load_topics()
 
-    # Classify opinions
-    classifier = OpinionClassifier()
-    # Assuming the classifier is trained elsewhere and loaded here
-    predictions = classifier.predict(matched_opinions['clean_text'].tolist())
-    matched_opinions['classification'] = predictions
+    new_opinions = pd.DataFrame({
+        "text": [
+            "I believe that the face on Mars is a natural formation.",
+            "I think the FACS has a good chance of changing the future in a possitive way.",
+            "They could be happy, sad, surprise, angery, disgusted,and afraid.",
+            "Mars has many mysteries that we have yet to uncover.",
+            "I think space exploration is a waste of resources.",
+            "Joining an extracurricular activity is a great way to make new friends, because you get to meet people that you would of never talked to if you didn't join that club."
+        ]
+    })
 
-    # Generate conclusions
-    summarizer = Summarizer()
-    for topic_id in matched_opinions['matched_topic'].unique():
-        topic_text = topics.iloc[topic_id]['text']
-        opinions_text = ' '.join(matched_opinions[matched_opinions['matched_topic'] == topic_id]['text'].tolist())
-        conclusion = summarizer.generate_conclusion(topic_text, opinions_text)
-        print(f"Conclusion for Topic {topic_id}:\n{conclusion}\n")
+    topics['text'] = topics['text'].apply(clean_text)
+    new_opinions['text'] = new_opinions['text'].apply(clean_text)
+
+    # Step 1: Match/Group topics
+    new_opinions = match_topics(grouping_model, topics, new_opinions)
+
+    # Step 2: Classify opinions
+    new_opinions = classify_opinions(classification_model, classification_tokenizer, new_opinions, topics)
+
+    # Step 3: Generate summaries
+    topic_summaries = generate_summaries(summarization_model, summarization_tokenizer, new_opinions, topics)
+
+    # Output the summaries
+    for topic_id, summary in topic_summaries.items():
+        topic_text = topics.loc[topics['topic_id'] == topic_id, 'text'].values[0]
+        print(f"Topic ID: {topic_id}")
+        print(f"Topic: {topic_text}")
+        print(f"Summary: {summary}")
+        print('-' * 80)
 
 if __name__ == '__main__':
     main()
